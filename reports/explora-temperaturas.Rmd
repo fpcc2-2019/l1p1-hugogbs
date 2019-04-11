@@ -18,31 +18,122 @@ theme_set(theme_bw())
 climas = read_csv(here::here("data/clima_cg_jp-semanal.csv"), 
                   col_types = "cTdddddd")
 
-glimpse(climas)
 ```
+
+Para facilitar a visualização foi adicionada uma coluna nos dados com a abreviação de cada mês
+```{r}
+climas <- climas %>%
+    mutate(mes_abrev = factor(month.abb[mes], month.abb))
+```
+
 
 ## Temperatura
 
 ### Onde é mais quente?
 
+Para responder a esta questão observaremos primeiramente os dados através de um boxplot, para termos uma visão mais genérica da distribuição da temperatura média de cada cidade.
 
-### As temperaturas máximas semanais (o pico do calor) são tão diferentes quanto as médias? Mais?  
+```{r}
+climas %>%
+    ggplot(aes(x=cidade, y=tmedia, color=cidade)) +
+    geom_boxplot() +
+    ggtitle("Sumário da temperatura média", subtitle = "de Campina Grande e João Pessoa") +
+    xlab("Cidade") +
+    ylab("Temperatura Média") +
+    theme(legend.position = "none")
+```
+De acordo com os dados João Pessoa é mais quente que Campina Grande, vejamos agora se isso é verdade para todos os anos.
 
+```{r}
+climas %>%
+    group_by(cidade, ano) %>%
+    summarise(tmedia=mean(tmedia)) %>%
+    ggplot(aes(x=ano, y=tmedia, color=cidade, group=cidade)) +
+    geom_line() +
+    geom_point() +
+    ggtitle("Temperatura Média ao longo dos anos", subtitle = "de Campina Grande e João Pessoa") +
+    xlab("Ano") +
+    ylab("Temperatura Média") +
+    scale_x_continuous(breaks = seq(1887, 2019, 3))
+```
+
+Como podemos ver a temperatura média é bem maior em João Pessoa, para todos os anos. Então podemos assumir que João Pessoa é mais quente que Campina.
 
 ### Quais os meses mais quentes e mais frios? 
 
+Continuaremos a observar a temperatura média, mas neste caso, em função do mês.
 
-### Qual foi o São João  mais frio de CG que está nos nossos dados?
-
-
+```{r}
+climas %>%
+    ggplot(aes(x=mes_abrev, y=tmedia)) +
+    geom_boxplot() +
+    geom_jitter(alpha=0.2, aes(color=mes_abrev)) +
+    ggtitle("Temperatura Média por mês") +
+    xlab("Mês") +
+    ylab("Temperatura Média") +
+    theme(legend.position = "none")
+    ```
+Podemos percerber que os meses: Junho, Julho e Agosto, são os mais frios; enquanto Fevereiro e Março apresentam as temperaturas mais altas.
 
 ## Chuva
 
 ### Quanto chove por semana em JP e CG?
 
-Como é a distribuição do volume de chuvas por semana em JP e CG? A chuva varia mais ou menos que a temperatura? O formato da distribuição é igual? 
+O gráfico a seguir exibe a média de chuva por semana para cada uma das cidades, as linhas contínua e tracejadas representam respectivamente a mediana e a média de chuva para cada cidade.
+```{r}
+chuva_sum <- climas %>%
+    mutate(week_number = week(semana)) %>%
+    group_by(cidade, week_number) %>%
+    summarise(chuva_media=mean(chuva), chuva_mediana=median(chuva)) %>%
+    group_by(cidade) %>%
+    summarise(chuva_media = mean(chuva_media), chuva_mediana = median(chuva_mediana))
 
-### No geral, onde chove mais?
+
+climas %>%
+    mutate(week_number = week(semana)) %>%
+    group_by(cidade, week_number) %>%
+    summarise(chuva=mean(chuva)) %>%
+    ggplot(aes(x=week_number, y=chuva, color = cidade)) +
+    geom_point() +
+    geom_line() +
+    facet_grid(cidade~., scales="free_y") +
+    geom_hline(data=chuva_sum, aes(yintercept= chuva_media, color=cidade), linetype="dashed") +
+    geom_hline(data=chuva_sum, aes(yintercept= chuva_mediana, color=cidade)) +
+    ggtitle("Média de Chuva por semana") +
+    xlab("Semana") +
+    ylab("Média de Chuva") +
+    theme(legend.position = "none") +
+    scale_y_continuous(breaks = seq(0,100,10))
+```
+
+Podemos perceber que em João Pessoa chove mais que em Campina uma vez que a capital da Paraíba apresenta uma mediana de 14.30 e média de 32.42 enquanto para CG a mediana é 5.35 e a média é 13.97.
 
 ### A distribuição é diferente em meses específicos? 
 
+Para responder a essa questão vejamos como se dá a distribuição das chuvas ao longo dos meses
+```{r}
+climas %>%
+    group_by(mes_abrev) %>%
+    summarise(chuva = mean(chuva)) %>%
+    ggplot(aes(x=mes_abrev, y=chuva, group=1)) +
+    geom_col(aes(fill=-chuva)) +
+    ggtitle("Média de Chuva por mês") +
+    xlab("Mês") +
+    ylab("Média de Chuva") +
+    theme(legend.position = "none")
+```
+
+Percebemos que a média de chuvas tem uma distribuição que se assemelha à normal com pico no mês de Junho, agora utilizamos boxplots para compararmos a distribuição dos dados de cada mês
+
+```{r}
+climas %>%
+    ggplot(aes(x=mes_abrev, y=chuva, color=mes_abrev)) +
+    geom_boxplot() +
+    ggtitle("Média de Chuva por mês") +
+    xlab("Mês") +
+    ylab("Média de Chuva") +
+    theme(legend.position = "none")
+    
+```
+
+Podemos observar que os meses: Janeiro, Setembro, Outubro, Novembro e Dezembro tem seus dados bastante concentrados e em geral com valores baixos o que pode indicar que chove pouco nesses meses. Por outro lado os meses que estão mais no meio do ano apresentam um IQR visualmente maior, ou seja, variam mais. Portanto podemos inferir que os meses tem distribuições de chuva diferentes.
